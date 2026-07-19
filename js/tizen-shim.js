@@ -29,15 +29,20 @@
             });
         },
 
-        /* Hide the Smart-Remote pointer/cursor if the panel supports it. */
-        hidePointer: function () {
+        /* Show/hide the Smart-Remote pointer. The app supports pointer remotes:
+           it boots in D-pad mode (cursor hidden) and reveals the pointer the
+           moment the remote's air-mouse moves. CSS mirrors this visually so it
+           works even on panels without setCursorVisibility. */
+        setPointerVisible: function (visible) {
             try {
                 if (hasWebapis && webapis.tvinfo && webapis.tvinfo.setCursorVisibility) {
-                    webapis.tvinfo.setCursorVisibility(false);
+                    webapis.tvinfo.setCursorVisibility(!!visible);
                 }
-            } catch (e) { /* not supported — CSS `cursor:none` still applies */ }
-            document.body.style.cursor = "none";
+            } catch (e) { /* not supported — CSS input-mode classes still apply */ }
         },
+
+        /* Back-compat: some callers may still ask to hide the pointer. */
+        hidePointer: function () { this.setPointerVisible(false); },
 
         exitApp: function () {
             try {

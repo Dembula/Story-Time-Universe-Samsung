@@ -1,11 +1,13 @@
-/* Bootstrap: register remote keys, hide the pointer, resolve session, route. */
+/* Bootstrap: register remote keys, set input mode, resolve session, route. */
 (function () {
     "use strict";
     var STU = window.STU;
 
     function boot() {
         STU.tv.registerKeys();
-        STU.tv.hidePointer();
+        // Start in D-pad mode; the first air-mouse movement reveals the pointer.
+        document.body.classList.add("dpad-mode");
+        STU.tv.setPointerVisible(false);
         STU.router.init();
 
         // Branded splash while we resolve the NextAuth session.

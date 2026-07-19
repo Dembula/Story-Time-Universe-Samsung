@@ -2,7 +2,7 @@
  * Focusable elements carry class "focusable". The engine picks the best
  * neighbour in the pressed direction using on-screen geometry, applies the
  * "focused" class, scrolls rails/pages so the target is visible, and fires
- * a "click" on Enter. Fully pointer-free (built for TV remotes). */
+ * a "click" on Enter. Also supports Smart-Remote pointers (hover + click). */
 (function () {
     "use strict";
     var STU = window.STU || (window.STU = {});
@@ -69,7 +69,8 @@
             if (closest(elm, ".sidenav")) nav.classList.add("open");
             else nav.classList.remove("open");
         }
-        ensureVisible(elm, opts);
+        // Pointer hover shouldn't yank rails/pages around under the cursor.
+        if (!(opts && opts.noScroll)) ensureVisible(elm, opts);
         if (elm.__onFocus) elm.__onFocus(elm);
     }
 
@@ -165,6 +166,45 @@
         if (current.__onEnter) { current.__onEnter(current); return; }
         current.click();
     }
+
+    /* ---------- Hybrid pointer input ---------- */
+    /* Samsung Smart-Remotes with an air-mouse emit standard mouse events. We use
+       them to drive the same focus model: hovering a card focuses it, clicking
+       activates it. Any remote key press flips back to D-pad mode (cursor hides). */
+    var pointerMode = false;
+    var lastX = -1, lastY = -1;
+
+    function setMode(pointer) {
+        if (pointerMode === pointer) return;
+        pointerMode = pointer;
+        document.body.classList.toggle("pointer-mode", pointer);
+        document.body.classList.toggle("dpad-mode", !pointer);
+        if (STU.tv && STU.tv.setPointerVisible) STU.tv.setPointerVisible(pointer);
+    }
+
+    document.addEventListener("mousemove", function (e) {
+        // Some panels emit a phantom mousemove on key press — ignore no-ops.
+        if (e.clientX === lastX && e.clientY === lastY) return;
+        lastX = e.clientX; lastY = e.clientY;
+        setMode(true);
+        var f = closest(e.target, ".focusable");
+        if (f && f !== current && visible(f)) setFocus(f, { noScroll: true });
+    }, true);
+
+    document.addEventListener("click", function (e) {
+        var f = closest(e.target, ".focusable");
+        if (!f) return;
+        setMode(true);
+        if (f !== current) setFocus(f, { noScroll: true });
+        // Mirror Enter: prefer the element's onEnter, else let its native click run.
+        if (f.__onEnter) { e.preventDefault(); f.__onEnter(f); }
+    }, true);
+
+    STU.input = {
+        isPointer: function () { return pointerMode; },
+        setPointer: function () { setMode(true); },
+        setDpad: function () { setMode(false); }
+    };
 
     STU.focus = {
         setScope: function (node) { container = node; },

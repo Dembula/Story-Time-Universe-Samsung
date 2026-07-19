@@ -42,6 +42,8 @@
         var name = CODES[code] || PREVIEW[code];
         if (!name) return;
         e.preventDefault();
+        // A remote key means the user put the air-mouse down: leave pointer mode.
+        if (STU.input) STU.input.setDpad();
         var h = active();
         if (h) h(name, code, e);
     }

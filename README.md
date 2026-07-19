@@ -14,14 +14,16 @@ It mirrors the viewer flow of the iOS app and the look of the production web bui
 
 - **Full viewing surface** — films, series/episodes, trailers, cast & crew credits, "More like this",
   Continue Watching, per‑type rows, search, and My List.
-- **Best‑in‑class player** — HLS video with a custom, pointer‑free control skin:
+- **Best‑in‑class player** — HLS video with a custom control skin (driven by D‑pad or pointer):
   - Back button + title that **fade out** during playback and fade back on any key press.
   - A **gradient timeline** (orange→gold) with a buffered indicator and scrub knob — **no default white seek bar**.
   - ±10s skip with on‑screen feedback pills, resume from last position, periodic progress save, watch‑session recording.
   - Subtitles, and episode **Up Next** with an auto‑advance countdown.
-- **TV‑correct input** — D‑pad **spatial navigation** everywhere; media keys (Play/Pause/FF/RW) supported;
-  the **Smart‑Remote pointer/cursor is disabled** (`cursor: none` + `setCursorVisibility(false)`), so remotes with a
-  pointer behave like plain D‑pad remotes.
+- **Hybrid TV input** — D‑pad **spatial navigation** everywhere plus full **Smart‑Remote pointer** support.
+  The app boots in D‑pad mode (cursor hidden); the moment the air‑mouse moves it flips to pointer mode —
+  hovering focuses a card, clicking activates it, and the player timeline is click‑to‑seek. Pressing any
+  remote key flips straight back to D‑pad mode and hides the cursor again. Media keys (Play/Pause/FF/RW)
+  are supported throughout.
 - **Full‑bleed screens** — the Profiles screen uses a rotating **backdrop that covers the whole 1920×1080 screen**;
   Home opens with a production‑style hero carousel.
 - **Smooth transitions** — screen crossfades, focus scaling, rail/row easing.
@@ -36,12 +38,12 @@ config.xml              Tizen widget manifest (privileges, WARP network access, 
 icon.png                App launcher icon
 index.html              Entry; loads all classic scripts in dependency order
 css/
-  base.css              Reset, brand theme tokens, transitions, cursor:none
+  base.css              Reset, brand theme tokens, transitions, input-mode cursor rules
   layout.css            Side nav, hero, content rows, poster cards
   screens.css           Splash, sign-in, profiles, detail, account
   player.css            Player skin (fading chrome, custom timeline, next-up)
 js/
-  tizen-shim.js         Platform bridge (registerKeys, hidePointer, exitApp, openBrowser, AVPlay check)
+  tizen-shim.js         Platform bridge (registerKeys, setPointerVisible, exitApp, openBrowser, AVPlay check)
   config.js             Base URLs + constants
   dom.js                DOM + formatting helpers
   media-url.js          Image URL candidate resolver (ported from iOS MediaURL)

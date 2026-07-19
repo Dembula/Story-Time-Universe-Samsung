@@ -28,6 +28,12 @@
     transition: opacity 0.35s var(--ease);
 }
 .controls.faded { opacity: 0; pointer-events: none; }
+
+/* Pointer-remote affordance on the transport controls. */
+body.pointer-mode .pl-back,
+body.pointer-mode .pl-play,
+body.pointer-mode .pl-skip,
+body.pointer-mode .pl-timeline { cursor: pointer; }
 .controls .top-scrim {
     position: absolute; top: 0; left: 0; right: 0; height: 220px;
     background: linear-gradient(180deg, rgba(0,0,0,0.75), rgba(0,0,0,0));

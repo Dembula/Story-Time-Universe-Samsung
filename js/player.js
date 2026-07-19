@@ -1,6 +1,6 @@
 /* Story Time Universe media player.
  * HTML5 HLS video (carries the webview session cookies to story-time.online),
- * with a custom, pointer-free control skin: back + title that fade out, a
+ * with a custom control skin (D-pad or pointer): back + title that fade out, a
  * gradient timeline (no default white bar), resume/save progress, subtitles,
  * and episode "Up Next". AVPlay is used automatically when available and the
  * source is not cookie-gated. */
@@ -117,6 +117,7 @@
         // The ordered focus targets.
         state.focusEls = [state.back, state.skipBack, state.play, state.skipFwd, state.timeline];
         applyFocus();
+        setupPointer();
 
         // Video events
         video.addEventListener("timeupdate", onTimeUpdate);
@@ -127,6 +128,32 @@
         video.addEventListener("ended", onEnded);
         video.addEventListener("error", function () { showError("This title could not be played."); });
         video.addEventListener("waiting", function () { /* buffering */ });
+    }
+
+    /* Pointer-remote support: the air-mouse reveals controls, hover focuses a
+       button, click activates it, and clicking the timeline seeks to that point. */
+    function setupPointer() {
+        root.addEventListener("mousemove", function () { showControls(false); });
+
+        var actions = [
+            { el: state.back, i: 0, act: destroy },
+            { el: state.skipBack, i: 1, act: function () { skip(-cfg.skipSeconds); } },
+            { el: state.play, i: 2, act: togglePlay },
+            { el: state.skipFwd, i: 3, act: function () { skip(cfg.skipSeconds); } }
+        ];
+        actions.forEach(function (a) {
+            a.el.addEventListener("mouseenter", function () { showControls(true); focusAt(a.i); });
+            a.el.addEventListener("click", function () { focusAt(a.i); a.act(); showControls(false); });
+        });
+
+        state.timeline.addEventListener("mouseenter", function () { showControls(true); focusAt(4); });
+        state.timeline.addEventListener("click", function (e) {
+            var r = state.timeline.getBoundingClientRect();
+            var frac = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+            var dur = (isFinite(video.duration) && video.duration > 0) ? video.duration : state.duration;
+            if (dur > 0) { try { video.currentTime = frac * dur; } catch (err) {} }
+            showControls(false);
+        });
     }
 
     function loadAndPlay() {

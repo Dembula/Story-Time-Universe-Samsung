@@ -32,13 +32,24 @@
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    /* TVs with a Smart-Remote pointer: never show a mouse cursor anywhere. */
-    cursor: none !important;
     outline: none;
     -webkit-user-select: none;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
 }
+
+/* Hybrid input model.
+   - D-pad mode (default): no visible cursor anywhere, remote drives focus.
+   - Pointer mode: a Smart-Remote air-mouse is in use, so reveal the cursor and
+     show a pointer over anything actionable. Switching is automatic (see input
+     handling in focus.js / keys.js). */
+body.dpad-mode,
+body.dpad-mode * { cursor: none !important; }
+
+body.pointer-mode,
+body.pointer-mode * { cursor: default; }
+body.pointer-mode .focusable,
+body.pointer-mode .focusable * { cursor: pointer; }
 
 html, body {
     width: 1920px;

@@ -1,0 +1,256 @@
+/* Story Time Universe — main app chrome: side nav, hero, content rows, poster cards. */
+
+/* ---------- Side navigation ---------- */
+.sidenav {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--nav-w);
+    padding: 40px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    background: linear-gradient(90deg, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.75) 70%, rgba(0,0,0,0) 100%);
+    z-index: 400;
+    transition: width 0.28s var(--ease);
+    overflow: hidden;
+}
+.sidenav.open { width: var(--nav-w-open); background: linear-gradient(90deg, rgba(0,0,0,0.98) 0%, rgba(0,0,0,0.9) 100%); }
+
+.sidenav .nav-logo {
+    height: 52px;
+    margin: 0 26px 34px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    white-space: nowrap;
+}
+.sidenav .nav-logo .mark-img {
+    width: 52px; height: 52px; flex: 0 0 52px;
+    border-radius: 12px; object-fit: cover;
+}
+.sidenav .nav-logo .word-img { height: 40px; width: auto; opacity: 0; transition: opacity 0.2s var(--ease); }
+.sidenav.open .nav-logo .word-img { opacity: 1; }
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    height: 62px;
+    width: 100%;
+    padding: 0 30px;
+    color: var(--muted);
+    font-size: 24px;
+    font-weight: 600;
+    white-space: nowrap;
+    border-left: 4px solid transparent;
+}
+.nav-item .ico { width: 34px; flex: 0 0 34px; text-align: center; font-size: 30px; }
+.nav-item .label { opacity: 0; transition: opacity 0.2s var(--ease); }
+.sidenav.open .nav-item .label { opacity: 1; }
+.nav-item.active { color: var(--fg); }
+.nav-item.focused {
+    color: #000;
+    background: linear-gradient(90deg, var(--accent) 0%, var(--accent-gold) 100%);
+    border-left-color: var(--accent-gold);
+}
+.nav-item.active:not(.focused) { border-left-color: var(--accent); }
+
+/* ---------- Content page scroller ---------- */
+.page {
+    position: absolute;
+    inset: 0;
+    padding-left: var(--nav-w);
+    overflow: hidden;
+}
+.rows-scroll {
+    position: absolute;
+    inset: 0;
+    padding: 0 0 80px;
+    overflow: hidden;
+}
+.rows-track {
+    transition: transform 0.36s var(--ease);
+    will-change: transform;
+    padding-top: 24px;
+}
+
+/* ---------- Hero ---------- */
+.hero {
+    position: relative;
+    height: 620px;
+    margin: 0 0 20px;
+    overflow: hidden;
+}
+.hero-slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.7s var(--ease);
+}
+.hero-slide.on { opacity: 1; }
+.hero-slide .bg {
+    position: absolute; inset: 0;
+    background-size: cover;
+    background-position: center 20%;
+}
+.hero-slide .scrim {
+    position: absolute; inset: 0;
+    background:
+        linear-gradient(90deg, rgba(0,0,0,0.92) 0%, rgba(0,0,0,0.55) 42%, rgba(0,0,0,0) 75%),
+        linear-gradient(0deg, rgba(0,0,0,0.98) 2%, rgba(0,0,0,0) 55%);
+}
+.hero-content {
+    position: absolute;
+    left: 96px;
+    bottom: 74px;
+    max-width: 900px;
+}
+.hero-badge {
+    display: inline-block;
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--accent-gold);
+    margin-bottom: 14px;
+}
+.hero-title {
+    font-size: 74px;
+    font-weight: 800;
+    line-height: 1.02;
+    text-shadow: 0 4px 24px rgba(0,0,0,0.7);
+    margin-bottom: 16px;
+}
+.hero-meta {
+    font-size: 24px;
+    color: var(--muted);
+    margin-bottom: 18px;
+}
+.hero-desc {
+    font-size: 25px;
+    color: rgba(255,255,255,0.86);
+    line-height: 1.4;
+    max-width: 780px;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin-bottom: 26px;
+}
+.hero-actions { display: flex; gap: 18px; align-items: center; }
+.hero-dots { position: absolute; right: 96px; bottom: 40px; display: flex; gap: 10px; }
+.hero-dots i {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: rgba(255,255,255,0.32);
+    transition: width 0.3s var(--ease), background 0.3s var(--ease);
+}
+.hero-dots i.on { width: 30px; border-radius: 6px; background: var(--accent); }
+
+/* ---------- Buttons ---------- */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    height: 62px;
+    padding: 0 34px;
+    border-radius: 40px;
+    font-size: 24px;
+    font-weight: 700;
+    background: rgba(255,255,255,0.16);
+    color: var(--fg);
+}
+.btn .ico { font-size: 26px; }
+.btn.primary { background: #fff; color: #000; }
+.btn.round { width: 62px; padding: 0; border-radius: 50%; }
+.btn.focused {
+    background: linear-gradient(120deg, var(--accent-gold), var(--accent));
+    color: #000;
+    transform: scale(1.06);
+    box-shadow: 0 12px 34px rgba(255,147,31,0.4);
+}
+.btn.primary.focused { background: linear-gradient(120deg, #fff, #fff); box-shadow: 0 12px 34px rgba(255,255,255,0.3); }
+
+/* ---------- Rows ---------- */
+.row { margin: 0 0 42px; }
+.row-title {
+    font-size: 30px;
+    font-weight: 700;
+    color: var(--fg);
+    margin: 0 0 16px 96px;
+    display: flex; align-items: center; gap: 10px;
+}
+.row-title .chev { color: var(--muted); font-size: 22px; }
+.row-rail-clip { overflow: hidden; padding-left: 96px; }
+.row-rail {
+    display: flex;
+    gap: 20px;
+    transition: transform 0.34s var(--ease);
+    will-change: transform;
+    padding: 14px 96px 14px 0;
+}
+
+/* ---------- Poster card ---------- */
+.card {
+    position: relative;
+    flex: 0 0 auto;
+    width: 220px;
+    height: 330px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--card);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+}
+.card .art { width: 100%; height: 100%; background-size: cover; background-position: center; }
+.card .fallback {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px; text-align: center;
+    font-size: 22px; font-weight: 700; color: var(--muted);
+    background: linear-gradient(160deg, #1a1200, #000);
+}
+.card .grad {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 55%;
+    background: linear-gradient(0deg, rgba(0,0,0,0.9), rgba(0,0,0,0));
+}
+.card .cap { position: absolute; left: 14px; right: 14px; bottom: 12px; }
+.card .cap .t { font-size: 21px; font-weight: 700; line-height: 1.15; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.card .cap .s { font-size: 17px; color: var(--muted); margin-top: 2px; }
+.card .rank {
+    position: absolute; left: -6px; bottom: 24px;
+    font-size: 120px; font-weight: 900; line-height: 0.8;
+    color: rgba(255,255,255,0.92); text-shadow: 0 3px 10px rgba(0,0,0,0.8);
+}
+.card.focused {
+    transform: scale(1.09);
+    box-shadow: 0 0 0 4px var(--focus-ring), 0 20px 46px rgba(0,0,0,0.7);
+}
+
+/* Continue-watching (landscape) card */
+.card.wide { width: 340px; height: 210px; }
+.card.wide .progress {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 6px;
+    background: rgba(255,255,255,0.22);
+}
+.card.wide .progress > i { display: block; height: 100%; background: var(--accent); }
+.card.wide .cap .t { -webkit-line-clamp: 1; }
+.card.wide .play-badge {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    font-size: 60px; color: rgba(255,255,255,0.92); opacity: 0;
+    transition: opacity 0.2s var(--ease);
+    text-shadow: 0 4px 12px rgba(0,0,0,0.7);
+}
+.card.wide.focused .play-badge { opacity: 1; }
+
+/* Search results grid uses standard cards inside a wrap */
+.grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+    padding: 20px 96px 60px;
+    align-content: flex-start;
+    overflow: hidden;   /* scrolled programmatically via scrollTop (no TV scrollbars) */
+}

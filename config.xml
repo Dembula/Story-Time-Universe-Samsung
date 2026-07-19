@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets"
+        xmlns:tizen="http://tizen.org/ns/widgets"
+        id="http://storytime.online/samsung-tv"
+        version="1.0.0"
+        viewmodes="maximized">
+
+    <tizen:application id="3Story0Time.StoryTimeUniverse"
+                       package="3Story0Time"
+                       required_version="4.0"/>
+
+    <name>Story Time Universe</name>
+    <description>Story Time Universe — watch independent films, series, documentaries and more on Samsung TV.</description>
+
+    <author href="https://story-time.online">Story Time</author>
+
+    <icon src="icon.png"/>
+    <content src="index.html"/>
+
+    <!-- Full network access to the Story Time backend (WARP: allow cross-origin XHR + streaming). -->
+    <access origin="*" subdomains="true"/>
+    <access origin="https://story-time.online" subdomains="true"/>
+    <access origin="https://videodelivery.net" subdomains="true"/>
+    <access origin="https://customer-*.cloudflarestream.com" subdomains="true"/>
+
+    <!-- Required device privileges. -->
+    <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
+    <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
+    <tizen:privilege name="http://developer.samsung.com/privilege/productinfo"/>
+
+    <!-- Landscape-locked 1080p TV profile. -->
+    <tizen:profile name="tv"/>
+    <tizen:setting screen-orientation="landscape"
+                   context-menu="disable"
+                   background-support="disable"
+                   encryption="disable"
+                   install-location="auto"
+                   hwkey-event="enable"/>
+
+    <feature name="http://tizen.org/feature/screen.size.normal.1080.1920"/>
+</widget>

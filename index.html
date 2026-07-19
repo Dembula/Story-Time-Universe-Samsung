@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=1920, height=1080, user-scalable=no">
+    <title>Story Time Universe</title>
+
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/layout.css">
+    <link rel="stylesheet" href="css/screens.css">
+    <link rel="stylesheet" href="css/player.css">
+</head>
+<body>
+    <!-- Root stage. Every screen mounts inside #app. -->
+    <div id="app" aria-live="polite"></div>
+
+    <!-- Fullscreen player surface, hidden until playback starts. -->
+    <div id="player-root" class="player-root hidden"></div>
+
+    <!-- Global toast / error banner. -->
+    <div id="toast" class="toast hidden"></div>
+
+    <!-- Tizen platform bridge (no-op stubs when running in a desktop browser for design preview). -->
+    <script src="js/tizen-shim.js"></script>
+
+    <!-- Core services (classic scripts, load order matters — no ES modules for TV webview safety). -->
+    <script src="js/config.js"></script>
+    <script src="js/dom.js"></script>
+    <script src="js/media-url.js"></script>
+    <script src="js/catalogue.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/keys.js"></script>
+    <script src="js/focus.js"></script>
+    <script src="js/components.js"></script>
+    <script src="js/player.js"></script>
+
+    <!-- Screens. -->
+    <script src="js/screens/splash.js"></script>
+    <script src="js/screens/signin.js"></script>
+    <script src="js/screens/profiles.js"></script>
+    <script src="js/screens/home.js"></script>
+    <script src="js/screens/search.js"></script>
+    <script src="js/screens/mylist.js"></script>
+    <script src="js/screens/detail.js"></script>
+    <script src="js/screens/account.js"></script>
+
+    <!-- Router + bootstrap. -->
+    <script src="js/router.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

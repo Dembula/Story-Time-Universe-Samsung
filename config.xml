@@ -5,32 +5,40 @@
         version="1.0.0"
         viewmodes="maximized">
 
-    <tizen:application id="3Story0Time.StoryTimeUniverse"
-                       package="3Story0Time"
+    <!--
+      Tizen package ID rules (enforced by Samsung):
+        - package  = EXACTLY 10 alphanumeric characters (0-9 a-z A-Z). No @, spaces, hyphens.
+        - id       = {package}.{ProjectName}  (ProjectName = alphanumeric only)
+      Valid example used here:
+        package = Story0Time
+        id      = Story0Time.StoryTimeUniverse
+    -->
+    <tizen:application id="Story0Time.StoryTimeUniverse"
+                       package="Story0Time"
                        required_version="4.0"/>
 
     <name>Story Time Universe</name>
-    <description>Story Time Universe — watch independent films, series, documentaries and more on Samsung TV.</description>
-
-    <author href="https://story-time.online">Story Time</author>
+    <description>Story Time Universe - watch independent films, series, documentaries and more on Samsung TV.</description>
+    <author href="https://story-time.online" email="hello@story-time.online">Story Time</author>
 
     <icon src="icon.png"/>
     <content src="index.html"/>
 
-    <!-- Full network access to the Story Time backend (WARP: allow cross-origin XHR + streaming). -->
+    <!-- WARP network access - required for API + HLS streaming from story-time.online. -->
     <access origin="*" subdomains="true"/>
     <access origin="https://story-time.online" subdomains="true"/>
     <access origin="https://videodelivery.net" subdomains="true"/>
-    <access origin="https://customer-*.cloudflarestream.com" subdomains="true"/>
+    <access origin="https://cloudflarestream.com" subdomains="true"/>
 
-    <!-- Required device privileges. -->
+    <!-- Public-level privileges only (works with a standard Samsung certificate). -->
     <tizen:privilege name="http://tizen.org/privilege/internet"/>
     <tizen:privilege name="http://tizen.org/privilege/tv.inputdevice"/>
     <tizen:privilege name="http://tizen.org/privilege/application.launch"/>
-    <tizen:privilege name="http://developer.samsung.com/privilege/productinfo"/>
 
-    <!-- Landscape-locked 1080p TV profile. -->
-    <tizen:profile name="tv"/>
+    <!-- Samsung Smart TV profile (not generic "tv"). -->
+    <tizen:profile name="tv-samsung"/>
+
+    <!-- Allow Smart-Remote pointer / mouse. Do NOT set pointing-device-support="disable". -->
     <tizen:setting screen-orientation="landscape"
                    context-menu="disable"
                    background-support="disable"
@@ -38,5 +46,8 @@
                    install-location="auto"
                    hwkey-event="enable"/>
 
+    <tizen:metadata key="http://samsung.com/tv/metadata/use.network" value="true"/>
+
     <feature name="http://tizen.org/feature/screen.size.normal.1080.1920"/>
+    <feature name="http://tizen.org/feature/screen.size.all"/>
 </widget>

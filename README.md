@@ -61,26 +61,77 @@ js/
 
 ---
 
+## App identity (do not change casually)
+
+Samsung enforces strict ID rules. This project is locked to:
+
+| Field | Value | Rule |
+| --- | --- | --- |
+| Package ID | `Story0Time` | **Exactly 10** alphanumeric chars (`0-9a-zA-Z`). No `@`, spaces, hyphens. |
+| Application ID | `Story0Time.StoryTimeUniverse` | `{package}.{ProjectName}` |
+| Widget name | `Story Time Universe` | Display name only |
+
+**Wrong examples that will fail install (`download failed[16]` / `was get app info failed`):**
+- `3Story0Time` — 11 characters (too long)
+- `Story@Time` — `@` is illegal
+- `Story Time` — spaces are illegal
+
+Always use **`Story0Time.StoryTimeUniverse`** in uninstall/install commands.
+
+---
+
 ## Build & run
 
 ### Option A — Tizen Studio (recommended)
-1. Install **Tizen Studio** with the **TV Extensions**.
-2. `File → Import → Tizen → Tizen Project` and select this folder (it already has `config.xml`).
-3. Create a **Samsung certificate** (`Tools → Certificate Manager`) and register your TV's DUID.
-4. Put the TV in **Developer Mode** (apps → *Apps*, enter `12345`, set your PC IP).
-5. Connect with **Device Manager**, then **Run As → Tizen Web Application**.
+1. Install **Tizen Studio** with the **TV Extensions** (Package Manager → TV Extensions).
+2. `File → Import → Tizen → Tizen Project` and select this folder (it has `config.xml`, `.project`, `.tproject`).
+3. Create a **Samsung certificate** (`Tools → Certificate Manager`) — Author + Distributor — and add your TV/emulator **DUID**.
+4. Put the TV in **Developer Mode** (Smart Hub → Apps, enter `12345` on remote, set your PC IP).
+5. In **Device Manager**, connect the TV/emulator, then **right‑click → Permit to install applications**.
+6. Right‑click the project → **Run As → Tizen Web Application**.
 
-### Option B — CLI packaging
+### Option B — CLI packaging (PowerShell helper)
+From the repo root (uses your existing `samsungtv` certificate profile):
+
+```powershell
+.\scripts\package.ps1
+# then, with emulator/TV online + "Permit to install":
+.\scripts\package.ps1 -Target emulator-26101
+```
+
+Manual equivalent:
+
 ```bash
-tizen build-web -- .
-tizen package -t wgt -s <your-cert-profile> -- .buildResult
-tizen install -n StoryTimeUniverse.wgt -t <tv-device>
+tizen build-web -e ".git/*" -e ".git" -e "README.md" -e "scripts/*" -e "*.md" -- .
+tizen package -t wgt -s samsungtv -- .buildResult
+# rename spaced output name for CLI:
+copy ".buildResult\Story Time Universe.wgt" StoryTimeUniverse.wgt
+tizen install -n StoryTimeUniverse.wgt -t emulator-26101
+```
+
+If you must use raw `sdb` / `wascmd`, the IDs must match `config.xml` **exactly**:
+
+```bash
+# Uninstall (ignore failure if not installed)
+sdb -s emulator-26101 shell 0 vd_appuninstall Story0Time.StoryTimeUniverse
+
+# Install — Application ID has NO @ symbol
+sdb -s emulator-26101 shell 0 vd_appinstall Story0Time.StoryTimeUniverse /home/owner/share/tmp/sdk_tools/tmp/StoryTimeUniverse.wgt
 ```
 
 ### Option C — Desktop design preview
 The `tizen-shim.js` stubs the platform APIs, so you can open `index.html` in Chrome to check
 layout and navigation with a keyboard (Arrow keys = D‑pad, Enter = OK, Esc/Backspace = Back).
 Live API calls require the backend to permit the request origin (see **Networking** below).
+
+### Common install failures
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `download failed[16]` | Bad app ID, unsigned `.wgt`, or missing “Permit to install” | Use `Story0Time.StoryTimeUniverse`, re-package with Samsung cert, permit device |
+| `was get app info failed` | App not installed / wrong ID on uninstall | Normal if first install; use the exact Application ID above |
+| Certificate / privilege mismatch | Partner-only privilege in `config.xml` | This project only uses **public** privileges |
+| Import fails in Tizen Studio | Missing project metadata | Repo includes `.project` + `.tproject` — re-import the folder |
 
 ---
 

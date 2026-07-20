@@ -1,0 +1,12 @@
+.buildResult/
+.buildResult_old_*/
+.sign/
+*.wgt
+.settings/
+.metadata/
+LocalStorage/
+webSimulator/
+node_modules/
+.DS_Store
+Thumbs.db
+*.log

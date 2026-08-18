@@ -4,6 +4,27 @@
     "use strict";
     var STU = window.STU || (window.STU = {});
     var cfg = STU.config;
+    var accessToken = null;
+    var viewerProfileId = null;
+
+    try { accessToken = window.localStorage.getItem("stu_session_token") || null; } catch (e) {}
+    try { viewerProfileId = window.localStorage.getItem("stu_viewer_profile") || null; } catch (e) {}
+
+    function persistToken(token) {
+        accessToken = token || null;
+        try {
+            if (accessToken) window.localStorage.setItem("stu_session_token", accessToken);
+            else window.localStorage.removeItem("stu_session_token");
+        } catch (e) {}
+    }
+
+    function persistProfile(id) {
+        viewerProfileId = id || null;
+        try {
+            if (viewerProfileId) window.localStorage.setItem("stu_viewer_profile", viewerProfileId);
+            else window.localStorage.removeItem("stu_viewer_profile");
+        } catch (e) {}
+    }
 
     function ApiError(message, status, opts) {
         this.name = "ApiError";
@@ -32,7 +53,11 @@
     function request(opts) {
         var method = opts.method || "GET";
         var url = buildUrl(opts.path, opts.query);
-        var headers = { "Accept": "application/json", "User-Agent": cfg.userAgent };
+        var headers = { "Accept": "application/json" };
+        if (cfg.userAgent) headers["X-ST-Platform"] = "tizen";
+        headers["X-ST-Device"] = "samsung-tv";
+        if (accessToken) headers["Authorization"] = "Bearer " + accessToken;
+        if (viewerProfileId) headers["X-ST-Viewer-Profile"] = viewerProfileId;
         var body = null;
 
         if (opts.json) {
@@ -49,9 +74,10 @@
             method: method,
             headers: headers,
             body: body,
-            credentials: "include",
+            credentials: accessToken ? "omit" : "include",
             mode: "cors",
-            cache: "no-store"
+            cache: "no-store",
+            redirect: "follow"
         }).then(function (res) {
             return res.text().then(function (text) {
                 var data = null;
@@ -82,6 +108,11 @@
         ApiError: ApiError,
         request: request,
         parseError: parseError,
+        getAccessToken: function () { return accessToken; },
+        setAccessToken: persistToken,
+        clearAccessToken: function () { persistToken(null); persistProfile(null); },
+        setViewerProfileId: persistProfile,
+        getViewerProfileId: function () { return viewerProfileId; },
 
         /* ---------- Content / catalogue ---------- */
         fetchContent: function (o) {
@@ -258,6 +289,7 @@
                 if (!ok(res)) throw parseError(res);
                 var profile = res.data && res.data.profile;
                 if (!profile) throw new ApiError((res.data && res.data.error) || "Failed to select profile", res.status);
+                persistProfile(profile.id);
                 return profile;
             });
         },

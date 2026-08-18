@@ -137,16 +137,16 @@ Live API calls require the backend to permit the request origin (see **Networkin
 
 ## Networking & auth notes
 
-- All API calls use `fetch(..., { credentials: "include" })` so the **NextAuth session cookie** and the
-  **`st_viewer_profile`** cookie flow with each request. The profile cookie is set server‑side by
-  `POST /api/viewer/profiles/active`.
-- `config.xml` declares `<access>` origins so Tizen's **WARP** allows cross‑origin requests to the backend
-  and to the video CDNs.
-- Playback uses the **HTML5 `<video>`** element (with `crossorigin="use-credentials"`) because it carries the
-  webview's session cookies to `story-time.online`, which is what the proxied HLS manifest
-  (`/api/content/:id/playback-bundle → playback.src`) requires. AVPlay is detected via the shim and can be
-  swapped in for sources that don't need cookie auth.
-- If your backend enforces strict CORS for TV origins, allow the app origin (or add a thin same‑origin proxy).
+Tizen webviews run as `file://` / widget origin. Chromium on 2024–2026 TVs **will not store NextAuth `SameSite=Lax` cookies** on cross-origin `fetch`. That is why Samsung certification saw:
+
+> Sign-in succeeded but no session was created.
+
+The app now authenticates with **`POST /api/tv/session`**, stores a JWT, and sends `Authorization: Bearer` on every API call (plus `X-ST-Viewer-Profile` after a profile is chosen). Production middleware copies those headers onto the NextAuth / profile cookies so existing viewer APIs keep working.
+
+- Fallback: NextAuth `credentials-viewer` CSRF flow (desktop preview / older webviews that keep cookies).
+- `config.xml` WARP `<access>` origins allow the backend and video CDNs.
+- Playback uses HTML5 `<video>`. Credentialed `crossorigin` is only set for cookie sessions; Bearer sessions omit it so HLS is not blocked by CORS.
+- **Resubmit as app version 1.0.1 after production with `/api/tv/session` is deployed.**
 
 ---
 
@@ -154,7 +154,7 @@ Live API calls require the backend to permit the request origin (see **Networkin
 
 | Area | Endpoints |
 | --- | --- |
-| Auth | `GET /api/auth/csrf`, `POST /api/auth/callback/credentials-viewer`, `GET /api/auth/session`, `POST /api/auth/signout` |
+| Auth | `POST/GET/DELETE /api/tv/session` (primary), `GET /api/auth/csrf`, `POST /api/auth/callback/credentials-viewer`, `GET /api/auth/session`, `POST /api/auth/signout` |
 | Profiles | `GET/POST /api/viewer/profiles`, `POST /api/viewer/profiles/active` |
 | Catalogue | `GET /api/content`, `GET /api/content/:id`, `GET /api/browse/search` |
 | Playback | `GET /api/content/:id/playback-bundle` (films / `episodeId` / `trailer=1`), `GET/PUT /api/watch/progress`, `POST /api/watch`, `GET /api/watch/continue-watching` |

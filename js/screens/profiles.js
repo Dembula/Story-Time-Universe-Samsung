@@ -90,6 +90,7 @@
                     // Session no longer valid -> back to sign in.
                     if (err && (err.status === 401 || err.status === 403)) {
                         try { window.localStorage.removeItem("stu_signed_in"); } catch (e) {}
+                        if (STU.API && STU.API.clearAccessToken) STU.API.clearAccessToken();
                         ctx.app.session = null;
                         ctx.replace("signin");
                         return;

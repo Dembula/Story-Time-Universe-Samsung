@@ -46,7 +46,11 @@
     function buildDom() {
         video = el("video", { class: "av", playsinline: true, autoplay: false });
         video.setAttribute("webkit-playsinline", "true");
-        video.setAttribute("crossorigin", "use-credentials");
+        // Cookie sessions need credentialed media; Bearer/JWT playback is header-based
+        // and `crossorigin=use-credentials` breaks HLS on Tizen (no CORS cookies).
+        if (!(STU.API && STU.API.getAccessToken && STU.API.getAccessToken())) {
+            video.setAttribute("crossorigin", "use-credentials");
+        }
         root.appendChild(video);
 
         // Status (loading / error)

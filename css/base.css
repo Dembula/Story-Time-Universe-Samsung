@@ -50,6 +50,14 @@ body.pointer-mode,
 body.pointer-mode * { cursor: default; }
 body.pointer-mode .focusable,
 body.pointer-mode .focusable * { cursor: pointer; }
+body.pointer-mode .field-input,
+body.pointer-mode .field-input * { cursor: text !important; }
+
+/* Allow the system IME to work inside real form fields. */
+input, textarea {
+    -webkit-user-select: text !important;
+    user-select: text !important;
+}
 
 html, body {
     width: 1920px;

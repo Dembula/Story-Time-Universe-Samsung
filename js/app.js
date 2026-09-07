@@ -50,8 +50,16 @@
         boot();
     }
 
-    // Global safety net: log unhandled errors to a toast during development.
+    // Global safety nets — never let an uncaught error take down sign-in.
     window.addEventListener("error", function (e) {
-        if (STU && STU.dom) STU.dom.toast((e && e.message) || "Unexpected error", true);
+        try {
+            if (STU && STU.dom) STU.dom.toast((e && e.message) || "Unexpected error", true);
+        } catch (err) {}
+    });
+    window.addEventListener("unhandledrejection", function (e) {
+        try {
+            var msg = (e && e.reason && (e.reason.message || e.reason)) || "Request failed";
+            if (STU && STU.dom) STU.dom.toast(String(msg), true);
+        } catch (err) {}
     });
 })();

@@ -162,6 +162,7 @@
 
             // ---- PIN modal ----
             function openPin(p) {
+                try { STU.tv.registerDigitKeys(); } catch (e) {}
                 var box = el("div", { class: "pin-box" });
                 box.appendChild(el("h3", { text: "Enter PIN for " + p.name }));
                 var dots = el("div", { class: "pin-dots" });
@@ -202,97 +203,82 @@
                 };
             }
 
-            // ---- Add modal (name via OSK + Adult/Kids) ----
+            // ---- Add modal — native <input> + system IME (no custom OSK) ----
             function openAdd() {
-                var name = "", isKid = false;
-                var box = el("div", { class: "pin-box", style: "width:900px" });
+                var isKid = false;
+                var box = el("div", { class: "pin-box", style: "width:760px" });
                 box.appendChild(el("h3", { text: "New profile" }));
-                var nameField = el("div", { class: "field focused", style: "margin:0 0 20px" }, [
-                    el("span", { class: "ico", html: "&#128100;" }),
-                    (function () { var v = el("span", { class: "val placeholder", text: "Name" }); nameField_val = v; return v; })()
-                ]);
-                var nameField_val;
+
+                var nameField = el("div", { class: "field focusable focused", style: "margin:0 0 20px" });
+                nameField.appendChild(el("span", { class: "ico", html: "&#128100;" }));
+                var nameInput = document.createElement("input");
+                nameInput.type = "text";
+                nameInput.className = "field-input";
+                nameInput.placeholder = "Name";
+                nameInput.autocomplete = "off";
+                nameInput.spellcheck = false;
+                nameField.appendChild(nameInput);
+
                 var typeRow = el("div", { class: "row-links", style: "margin-bottom:24px" });
-                var adultBtn = el("div", { class: "link", text: "Adult" });
-                var kidBtn = el("div", { class: "link", text: "Kids" });
+                var adultBtn = el("div", { class: "link focusable", text: "Adult" });
+                var kidBtn = el("div", { class: "link focusable", text: "Kids" });
                 typeRow.appendChild(adultBtn); typeRow.appendChild(kidBtn);
-                var createBtn = el("div", { class: "btn primary", text: "Create", style: "width:100%" });
+                var createBtn = el("div", { class: "btn primary focusable", text: "Create", style: "width:100%" });
                 box.appendChild(nameField); box.appendChild(typeRow); box.appendChild(createBtn);
                 var wrap = el("div", { class: "modal-backdrop" }, [box]);
                 node.appendChild(wrap);
-                setTimeout(function () { wrap.classList.add("show"); }, 10);
+                setTimeout(function () { wrap.classList.add("show"); try { nameInput.focus(); } catch (e) {} }, 10);
 
-                // reuse the sign-in style simple keyboard via prompt of chars using number/color? Keep it light:
-                // Use a compact inline keyboard.
-                var kbRows = ["abcdefghij".split(""), "klmnopqrst".split(""), "uvwxyz -'".split("")];
-                var kb = el("div", { class: "osk show", style: "position:static;transform:none;width:auto;margin-top:20px" });
-                var keyGrid = [];
-                kbRows.forEach(function (row) {
-                    var r = el("div", { class: "krow" });
-                    var re = [];
-                    row.forEach(function (ch) { var k = el("div", { class: "key", text: ch === " " ? "Space" : ch }); k.__char = ch; r.appendChild(k); re.push(k); });
-                    kb.appendChild(r); keyGrid.push(re);
-                });
-                var last = el("div", { class: "krow" });
-                var del = el("div", { class: "key", html: "&#9003;" }); del.__act = "del";
-                last.appendChild(del); kb.appendChild(last); keyGrid.push([del]);
-                box.appendChild(kb);
-
-                function renderName() {
-                    if (!name) { nameField_val.className = "val placeholder"; nameField_val.textContent = "Name"; }
-                    else { nameField_val.className = "val"; nameField_val.textContent = name; }
-                }
-
-                // focus zones: 0 = keyboard grid, 1 = adult, 2 = kid, 3 = create
-                var zone = 0, gr = 0, gc = 0, btnIdx = 0;
-                var btns = [adultBtn, kidBtn, createBtn];
+                var btns = [nameField, adultBtn, kidBtn, createBtn];
+                var btnIdx = 0;
                 function paintAll() {
-                    keyGrid.forEach(function (row, r) { row.forEach(function (k, c) { k.classList.toggle("focused", zone === 0 && r === gr && c === gc); }); });
-                    btns.forEach(function (b, i) { b.classList.toggle("focused", zone === 1 && i === btnIdx); });
+                    btns.forEach(function (b, i) { b.classList.toggle("focused", i === btnIdx); });
                     adultBtn.style.background = (!isKid ? "var(--accent-soft)" : "");
                     kidBtn.style.background = (isKid ? "var(--accent-soft)" : "");
                 }
+                function blurName() { try { nameInput.blur(); } catch (e) {} }
                 function create() {
-                    if (!name.trim()) { STU.dom.toast("Enter a name.", true); return; }
+                    var name = String(nameInput.value || "").trim();
+                    if (!name) { STU.dom.toast("Enter a name.", true); return; }
                     var now = new Date();
                     var year = now.getUTCFullYear() - (isKid ? 10 : 21);
-                    STU.API.createProfile({ name: name.trim(), birthYear: year, birthMonth: 1, birthDay: 1 }).then(function () {
+                    STU.API.createProfile({ name: name, birthYear: year, birthMonth: 1, birthDay: 1 }).then(function () {
                         closeModal(); load();
                     }).catch(function (err) { STU.dom.toast((err && err.message) || "Could not create profile.", true); });
                 }
-                renderName(); paintAll();
+                nameInput.addEventListener("keydown", function (e) {
+                    var code = e.keyCode || e.which;
+                    if (code === 13) { e.preventDefault(); blurName(); btnIdx = 3; paintAll(); create(); }
+                });
+                paintAll();
                 modal = {
                     key: function (nm) {
+                        var typing = document.activeElement === nameInput;
+                        if (typing) {
+                            if (nm === "Back" || nm === "Exit") { blurName(); paintAll(); return; }
+                            if (nm === "Down") { blurName(); btnIdx = 1; paintAll(); return; }
+                            if (nm === "Enter") { blurName(); create(); return; }
+                            return;
+                        }
                         if (nm === "Back" || nm === "Exit") { closeModal(); return; }
-                        if (zone === 0) {
-                            if (nm === "Up") { if (gr === 0) { zone = 1; btnIdx = 0; } else gr--; clamp(); paintAll(); }
-                            else if (nm === "Down") { if (gr < keyGrid.length - 1) gr++; else { zone = 1; btnIdx = 2; } clamp(); paintAll(); }
-                            else if (nm === "Left") { gc = Math.max(0, gc - 1); paintAll(); }
-                            else if (nm === "Right") { gc = Math.min(keyGrid[gr].length - 1, gc + 1); paintAll(); }
-                            else if (nm === "Enter") {
-                                var k = keyGrid[gr][gc];
-                                if (k.__act === "del") name = name.slice(0, -1); else name += k.__char;
-                                renderName();
-                            }
-                        } else {
-                            if (nm === "Left") { btnIdx = Math.max(0, btnIdx - 1); paintAll(); }
-                            else if (nm === "Right") { btnIdx = Math.min(btns.length - 1, btnIdx + 1); paintAll(); }
-                            else if (nm === "Down") { zone = 0; gr = 0; paintAll(); }
-                            else if (nm === "Up") { zone = 0; gr = keyGrid.length - 1; clamp(); paintAll(); }
-                            else if (nm === "Enter") {
-                                if (btns[btnIdx] === adultBtn) { isKid = false; paintAll(); }
-                                else if (btns[btnIdx] === kidBtn) { isKid = true; paintAll(); }
-                                else create();
-                            }
+                        if (nm === "Left") { btnIdx = Math.max(0, btnIdx - 1); paintAll(); }
+                        else if (nm === "Right") { btnIdx = Math.min(btns.length - 1, btnIdx + 1); paintAll(); }
+                        else if (nm === "Up") { btnIdx = Math.max(0, btnIdx - 1); paintAll(); }
+                        else if (nm === "Down") { btnIdx = Math.min(btns.length - 1, btnIdx + 1); paintAll(); }
+                        else if (nm === "Enter") {
+                            if (btns[btnIdx] === nameField) { try { nameInput.focus(); } catch (e) {} }
+                            else if (btns[btnIdx] === adultBtn) { isKid = false; paintAll(); }
+                            else if (btns[btnIdx] === kidBtn) { isKid = true; paintAll(); }
+                            else create();
                         }
                     },
                     node: wrap
                 };
-                function clamp() { if (gc >= keyGrid[gr].length) gc = keyGrid[gr].length - 1; }
             }
 
             function closeModal() {
                 if (!modal) return;
+                try { STU.tv.unregisterDigitKeys(); } catch (e) {}
                 var n = modal.node; modal = null;
                 if (n) { n.classList.remove("show"); setTimeout(function () { if (n.parentNode) n.parentNode.removeChild(n); }, 250); }
                 paint();

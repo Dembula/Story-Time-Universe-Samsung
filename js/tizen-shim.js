@@ -16,16 +16,31 @@
         /* Register the remote keys we care about so keydown events fire for them. */
         registerKeys: function () {
             if (!hasTizen || !tizen.tvinputdevice) return;
+            /* Do NOT register digit keys globally — that steals them from the
+               system IME and crashes / bricks login typing on Tizen 8–10. */
             var keys = [
                 "MediaPlayPause", "MediaPlay", "MediaPause", "MediaStop",
                 "MediaRewind", "MediaFastForward",
                 "MediaTrackPrevious", "MediaTrackNext",
                 "ColorF0Red", "ColorF1Green", "ColorF2Yellow", "ColorF3Blue",
-                "0", "1", "2", "3", "4", "5", "6", "7", "8", "9",
                 "ChannelUp", "ChannelDown", "Info", "Back"
             ];
             keys.forEach(function (k) {
                 try { tizen.tvinputdevice.registerKey(k); } catch (e) { /* key not supported */ }
+            });
+        },
+
+        registerDigitKeys: function () {
+            if (!hasTizen || !tizen.tvinputdevice) return;
+            ["0","1","2","3","4","5","6","7","8","9"].forEach(function (k) {
+                try { tizen.tvinputdevice.registerKey(k); } catch (e) {}
+            });
+        },
+
+        unregisterDigitKeys: function () {
+            if (!hasTizen || !tizen.tvinputdevice || !tizen.tvinputdevice.unregisterKey) return;
+            ["0","1","2","3","4","5","6","7","8","9"].forEach(function (k) {
+                try { tizen.tvinputdevice.unregisterKey(k); } catch (e) {}
             });
         },
 

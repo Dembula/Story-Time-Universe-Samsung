@@ -1,20 +1,15 @@
-/* Sign in — NextAuth credentials-viewer, with an on-screen keyboard (pointer-free). */
+/* Sign in — native <input> fields so Samsung's system IME handles typing.
+ * A custom OSK previously crashed on Tizen 8–10 while filling credentials
+ * (Smart Remote / IME key conflicts, Space/Backspace remapped, no real inputs). */
 (function () {
     "use strict";
     var STU = window.STU || (window.STU = {});
-    var el = STU.dom.el, toast = STU.dom.toast;
+    var el = STU.dom.el;
     STU.screens = STU.screens || {};
-
-    var KB_ROWS = [
-        "1234567890".split(""),
-        "qwertyuiop".split(""),
-        "asdfghjkl".split(""),
-        "zxcvbnm@._-".split("")
-    ];
 
     STU.screens.signin = {
         render: function (ctx) {
-            var email = "", password = "", showPass = false, busy = false;
+            var showPass = false, busy = false, destroyed = false;
 
             var node = el("div", { class: "signin" });
             var panel = el("div", { class: "panel" });
@@ -24,13 +19,18 @@
 
             var errEl = el("div", { class: "err" });
 
-            var emailField = field("\u2709", "email");
-            var passField = field("\u26bf", "password");
-            var eye = el("span", { class: "eye", html: "&#128065;" });
+            var emailField = makeField("email", "Email", "email");
+            var passField = makeField("password", "Password", "current-password");
+            var eye = el("div", {
+                class: "eye-btn focusable",
+                tabindex: "-1",
+                text: "Show",
+                title: "Show password"
+            });
             passField.appendChild(eye);
 
-            var signBtn = el("div", { class: "btn primary", text: "Sign In" });
-            var signup = el("div", { class: "link", text: "Sign up on web" });
+            var signBtn = el("div", { class: "btn primary focusable", tabindex: "-1", text: "Sign In" });
+            var signup = el("div", { class: "link focusable", tabindex: "-1", text: "Sign up on web" });
             var links = el("div", { class: "row-links" }, [signup]);
 
             panel.appendChild(errEl);
@@ -40,153 +40,226 @@
             panel.appendChild(links);
             node.appendChild(panel);
 
-            // On-screen keyboard
-            var osk = el("div", { class: "osk" });
-            var keyEls = [];   // rows of elements
-            KB_ROWS.forEach(function (row) {
-                var r = el("div", { class: "krow" });
-                var rowEls = [];
-                row.forEach(function (ch) {
-                    var k = el("div", { class: "key", text: ch });
-                    k.__char = ch;
-                    r.appendChild(k); rowEls.push(k);
-                });
-                osk.appendChild(r); keyEls.push(rowEls);
-            });
-            var lastRow = el("div", { class: "krow" });
-            var spaceKey = el("div", { class: "key wide", text: "Space" }); spaceKey.__char = " ";
-            var delKey = el("div", { class: "key", html: "&#9003; Del" }); delKey.__act = "del";
-            var doneKey = el("div", { class: "key wide", text: "Done" }); doneKey.__act = "done";
-            lastRow.appendChild(spaceKey); lastRow.appendChild(delKey); lastRow.appendChild(doneKey);
-            osk.appendChild(lastRow);
-            keyEls.push([spaceKey, delKey, doneKey]);
-            node.appendChild(osk);
+            var emailInput = emailField.querySelector("input");
+            var passInput = passField.querySelector("input");
+            var formTargets = [emailField, passField, eye, signBtn, signup];
+            var formIdx = 0;
 
-            function field(icon, kind) {
-                var f = el("div", { class: "field" });
-                f.appendChild(el("span", { class: "ico", html: kind === "email" ? "&#9993;" : "&#128274;" }));
-                var val = el("span", { class: "val placeholder", text: kind === "email" ? "Email" : "Password" });
-                f.appendChild(val);
-                f.__val = val; f.__kind = kind;
+            function makeField(type, placeholder, autocomplete) {
+                var f = el("div", { class: "field focusable", tabindex: "-1" });
+                f.appendChild(el("span", {
+                    class: "ico",
+                    html: type === "email" ? "&#9993;" : "&#128274;"
+                }));
+                var input = document.createElement("input");
+                input.type = type;
+                input.className = "field-input";
+                input.placeholder = placeholder;
+                input.autocomplete = autocomplete || "off";
+                input.spellcheck = false;
+                input.setAttribute("autocapitalize", "off");
+                input.setAttribute("autocorrect", "off");
+                input.setAttribute("inputmode", type === "email" ? "email" : "text");
+                /* Keep IME usable on Tizen — do not set readonly. */
+                f.appendChild(input);
+                f.__input = input;
+                f.__kind = type;
                 return f;
             }
 
-            function renderField(f) {
-                var isEmail = f.__kind === "email";
-                var text = isEmail ? email : password;
-                var display = isEmail ? text : text.replace(/./g, showPass ? "" : "\u2022");
-                if (!showPass && !isEmail) display = text.replace(/./g, "\u2022");
-                if (showPass && !isEmail) display = text;
-                if (!text) {
-                    f.__val.className = "val placeholder";
-                    f.__val.textContent = isEmail ? "Email" : "Password";
-                } else {
-                    f.__val.className = "val";
-                    f.__val.textContent = display;
-                }
+            function blurInputs() {
+                try { if (emailInput) emailInput.blur(); } catch (e) {}
+                try { if (passInput) passInput.blur(); } catch (e) {}
             }
-
-            // ---- focus model ----
-            var mode = "form";
-            var formTargets = [emailField, passField, signBtn, signup];
-            var formIdx = 0;
-            var oskR = 0, oskC = 0;
-            var activeFieldKind = "email";
 
             function paintForm() {
                 formTargets.forEach(function (t, i) {
-                    t.classList.toggle("focused", i === formIdx && mode === "form");
-                });
-            }
-            function paintOsk() {
-                keyEls.forEach(function (row, r) {
-                    row.forEach(function (k, c) {
-                        k.classList.toggle("focused", mode === "osk" && r === oskR && c === oskC);
-                    });
+                    t.classList.toggle("focused", i === formIdx);
                 });
             }
 
-            function openOsk(kind) {
-                activeFieldKind = kind;
-                mode = "osk"; oskR = 1; oskC = 0;
-                osk.classList.add("show");
-                paintForm(); paintOsk();
-            }
-            function closeOsk() {
-                mode = "form";
-                osk.classList.remove("show");
-                paintOsk(); paintForm();
+            function focusField(field) {
+                blurInputs();
+                var input = field && field.__input;
+                if (!input) return;
+                try {
+                    input.focus();
+                    /* Move caret to end so reviewers can keep typing. */
+                    var len = (input.value || "").length;
+                    if (typeof input.setSelectionRange === "function") {
+                        input.setSelectionRange(len, len);
+                    }
+                } catch (e) {}
             }
 
-            function typeChar(ch) {
-                if (activeFieldKind === "email") email += ch; else password += ch;
-                renderField(activeFieldKind === "email" ? emailField : passField);
+            function activateTarget(t) {
+                if (!t) return;
+                if (t === emailField) { focusField(emailField); return; }
+                if (t === passField) { focusField(passField); return; }
+                if (t === eye) { togglePass(); return; }
+                if (t === signBtn) { submit(); return; }
+                if (t === signup) {
+                    try { STU.tv.openBrowser(STU.config.urls.signup); } catch (e) {}
+                }
             }
-            function backspace() {
-                if (activeFieldKind === "email") email = email.slice(0, -1);
-                else password = password.slice(0, -1);
-                renderField(activeFieldKind === "email" ? emailField : passField);
+
+            function togglePass() {
+                showPass = !showPass;
+                try {
+                    passInput.type = showPass ? "text" : "password";
+                } catch (e) {
+                    /* Some Tizen builds reject type flips — recreate safely. */
+                    showPass = !showPass;
+                }
+                eye.textContent = showPass ? "Hide" : "Show";
+            }
+
+            function readEmail() {
+                return String((emailInput && emailInput.value) || "").trim();
+            }
+            function readPassword() {
+                return String((passInput && passInput.value) || "");
             }
 
             function submit() {
-                if (busy) return;
-                if (!email || !password) { errEl.textContent = "Enter your email and password."; return; }
-                busy = true; errEl.textContent = ""; signBtn.textContent = "Signing in\u2026";
+                if (busy || destroyed) return;
+                blurInputs();
+                var email = readEmail();
+                var password = readPassword();
+                if (!email || !password) {
+                    errEl.textContent = "Enter your email and password.";
+                    return;
+                }
+                busy = true;
+                errEl.textContent = "";
+                signBtn.textContent = "Signing in\u2026";
                 STU.Auth.signIn(email, password).then(function (session) {
+                    if (destroyed) return null;
                     ctx.app.session = session;
                     try { window.localStorage.setItem("stu_signed_in", "1"); } catch (e) {}
                     return STU.API.fetchSubscription();
                 }).then(function (sub) {
+                    if (destroyed) return;
                     ctx.app.subscription = sub;
                     ctx.app.activeProfile = null;
                     ctx.replace("profiles");
                 }).catch(function (err) {
-                    busy = false; signBtn.textContent = "Sign In";
+                    if (destroyed) return;
+                    busy = false;
+                    signBtn.textContent = "Sign In";
                     errEl.textContent = (err && err.message) || "Sign-in failed.";
                 });
             }
 
+            /* Wire focusable Enter / pointer activation. */
+            emailField.__onEnter = function () { formIdx = 0; paintForm(); focusField(emailField); };
+            passField.__onEnter = function () { formIdx = 1; paintForm(); focusField(passField); };
+            eye.__onEnter = function () { formIdx = 2; paintForm(); togglePass(); };
+            signBtn.__onEnter = function () { formIdx = 3; paintForm(); submit(); };
+            signup.__onEnter = function () { formIdx = 4; paintForm(); activateTarget(signup); };
+
+            /* Enter inside an input submits / advances without crashing. */
+            function onInputKeyDown(e) {
+                var code = e.keyCode || e.which;
+                if (code === 13) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    blurInputs();
+                    if (e.target === emailInput) {
+                        formIdx = 1; paintForm(); focusField(passField);
+                    } else {
+                        submit();
+                    }
+                    return;
+                }
+                if (code === 27 || code === 10009 || code === 8 && !(e.target.value || "").length) {
+                    /* Empty-field Back / TV Back leaves the input safely. */
+                    if (code !== 8 || !(e.target.value || "").length) {
+                        e.preventDefault();
+                        blurInputs();
+                    }
+                }
+            }
+            emailInput.addEventListener("keydown", onInputKeyDown);
+            passInput.addEventListener("keydown", onInputKeyDown);
+
+            emailInput.addEventListener("focus", function () { formIdx = 0; paintForm(); });
+            passInput.addEventListener("focus", function () { formIdx = 1; paintForm(); });
+
             function onKey(name) {
-                if (mode === "osk") return oskKey(name);
-                // form mode
-                if (name === "Back" || name === "Exit") { STU.tv.exitApp(); return; }
-                if (name === "Down") { formIdx = Math.min(formTargets.length - 1, formIdx + 1); paintForm(); return; }
-                if (name === "Up") { formIdx = Math.max(0, formIdx - 1); paintForm(); return; }
-                if (name === "Yellow") { showPass = !showPass; renderField(passField); return; }
-                if (name === "Right" && formTargets[formIdx] === passField) { showPass = !showPass; renderField(passField); return; }
-                if (name === "Enter") {
-                    var t = formTargets[formIdx];
-                    if (t === emailField) openOsk("email");
-                    else if (t === passField) openOsk("password");
-                    else if (t === signBtn) submit();
-                    else if (t === signup) STU.tv.openBrowser(STU.config.urls.signup);
+                try {
+                    /* While the system IME owns an input, only handle TV chrome keys. */
+                    var typing = document.activeElement === emailInput || document.activeElement === passInput;
+                    if (typing) {
+                        if (name === "Back" || name === "Exit") {
+                            blurInputs();
+                            paintForm();
+                            return;
+                        }
+                        if (name === "Up") {
+                            blurInputs();
+                            formIdx = Math.max(0, formIdx - 1);
+                            paintForm();
+                            return;
+                        }
+                        if (name === "Down") {
+                            blurInputs();
+                            formIdx = Math.min(formTargets.length - 1, formIdx + 1);
+                            paintForm();
+                            return;
+                        }
+                        if (name === "Enter") {
+                            blurInputs();
+                            if (formIdx === 0) { formIdx = 1; paintForm(); focusField(passField); }
+                            else submit();
+                            return;
+                        }
+                        /* Digits / letters / Space / Backspace: leave to the IME. */
+                        return;
+                    }
+
+                    if (name === "Back" || name === "Exit") {
+                        STU.tv.exitApp();
+                        return;
+                    }
+                    if (name === "Down") {
+                        formIdx = Math.min(formTargets.length - 1, formIdx + 1);
+                        paintForm();
+                        return;
+                    }
+                    if (name === "Up") {
+                        formIdx = Math.max(0, formIdx - 1);
+                        paintForm();
+                        return;
+                    }
+                    if (name === "Left" || name === "Right") {
+                        if (formTargets[formIdx] === passField || formTargets[formIdx] === eye) {
+                            formIdx = formTargets[formIdx] === eye ? 1 : 2;
+                            paintForm();
+                        }
+                        return;
+                    }
+                    if (name === "Yellow") { togglePass(); return; }
+                    if (name === "Enter") activateTarget(formTargets[formIdx]);
+                } catch (err) {
+                    try { errEl.textContent = "Input error — try again."; } catch (e2) {}
                 }
             }
 
-            function oskKey(name) {
-                if (name === "Back" || name === "Exit") { closeOsk(); return; }
-                if (name === "Up") { oskR = Math.max(0, oskR - 1); clampCol(); paintOsk(); return; }
-                if (name === "Down") { oskR = Math.min(keyEls.length - 1, oskR + 1); clampCol(); paintOsk(); return; }
-                if (name === "Left") { oskC = Math.max(0, oskC - 1); paintOsk(); return; }
-                if (name === "Right") { oskC = Math.min(keyEls[oskR].length - 1, oskC + 1); paintOsk(); return; }
-                if (name === "Yellow") { showPass = !showPass; renderField(passField); return; }
-                if (name === "Enter") {
-                    var k = keyEls[oskR][oskC];
-                    if (k.__act === "done") { closeOsk(); return; }
-                    if (k.__act === "del") { backspace(); return; }
-                    if (k.__char != null) typeChar(k.__char);
-                }
-            }
-            function clampCol() { if (oskC >= keyEls[oskR].length) oskC = keyEls[oskR].length - 1; }
-
-            renderField(emailField); renderField(passField);
             paintForm();
 
             return {
                 node: node,
                 onKey: onKey,
-                initialFocus: function () { formIdx = 0; paintForm(); },
-                destroy: function () {}
+                initialFocus: function () {
+                    formIdx = 0;
+                    paintForm();
+                    /* Do not auto-open IME on mount — reviewers open it with OK. */
+                },
+                destroy: function () {
+                    destroyed = true;
+                    blurInputs();
+                }
             };
         }
     };

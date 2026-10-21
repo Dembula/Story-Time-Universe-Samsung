@@ -57,7 +57,10 @@
         if (cfg.userAgent) headers["X-ST-Platform"] = "tizen";
         headers["X-ST-Device"] = "samsung-tv";
         if (accessToken) headers["Authorization"] = "Bearer " + accessToken;
-        if (viewerProfileId) headers["X-ST-Viewer-Profile"] = viewerProfileId;
+        if (viewerProfileId) {
+            headers["X-ST-Viewer-Profile"] = viewerProfileId;
+            headers["X-Viewer-Profile-Id"] = viewerProfileId;
+        }
         var body = null;
 
         if (opts.json) {

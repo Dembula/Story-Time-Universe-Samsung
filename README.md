@@ -143,7 +143,7 @@ The app authenticates with **`POST /api/tv/session`** (`credentials: "omit"`), s
 
 - Desktop preview may fall back to NextAuth cookies; packaged Tizen never does.
 - QA viewer accounts must **not** have authenticator MFA enabled.
-- **Resubmit as app version 1.0.3** with production middleware covering watchlist/crew/people.
+- **Resubmit as app version 1.0.4** with production middleware covering watchlist/crew/people, CORS profile headers, and `tv_token` HLS auth.
 
 ---
 

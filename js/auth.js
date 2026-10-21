@@ -51,10 +51,21 @@
                     if (res.status === 0) return null;
                     throw API.parseError(res);
                 }
-                return sessionFromPayload(res.data);
+                var session = sessionFromPayload(res.data);
+                if (!session || !session.user) {
+                    API.clearAccessToken();
+                    persistSignedIn(false);
+                    return null;
+                }
+                persistSignedIn(true);
+                return session;
             }).catch(function (err) {
                 if (onTizen()) {
-                    if (err && err.status === 401) return null;
+                    if (err && err.status === 401) {
+                        API.clearAccessToken();
+                        persistSignedIn(false);
+                        return null;
+                    }
                     throw err;
                 }
                 return Auth.fetchCookieSession();
@@ -73,17 +84,19 @@
         },
 
         /* Primary path for TV — Bearer JWT. */
-        signInTv: function (email, password) {
+        signInTv: function (email, password, mfaCode) {
             var cleanEmail = String(email || "").trim().toLowerCase();
             var cleanPass = String(password || "");
             if (!cleanEmail || !cleanPass) {
                 return Promise.reject(new API.ApiError("Enter your email and password.", 400));
             }
+            var body = { email: cleanEmail, password: cleanPass };
+            if (mfaCode && String(mfaCode).trim()) body.mfaCode = String(mfaCode).trim();
             return API.request({
                 path: "api/tv/session",
                 method: "POST",
                 omitCredentials: true,
-                json: { email: cleanEmail, password: cleanPass }
+                json: body
             }).then(function (res) {
                 if (res.status === 200) {
                     var token = res.data && res.data.token;
@@ -147,11 +160,11 @@
             });
         },
 
-        signIn: function (email, password) {
+        signIn: function (email, password, mfaCode) {
             if (onTizen()) {
-                return Auth.signInTv(email, password);
+                return Auth.signInTv(email, password, mfaCode);
             }
-            return Auth.signInTv(email, password).catch(function (err) {
+            return Auth.signInTv(email, password, mfaCode).catch(function (err) {
                 if (err && (err.status === 404 || err.status === 405)) {
                     return Auth.signInCookies(email, password);
                 }

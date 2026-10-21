@@ -27,15 +27,19 @@
                 return STU.API.fetchSubscription().then(function (sub) {
                     STU.router.app.subscription = sub;
                     return session;
+                }).catch(function () {
+                    // Subscription read can fail without invalidating the JWT.
+                    return session;
                 });
             }
             return session;
         }).then(function (session) {
             finish(session && session.user ? "profiles" : "signin");
         }).catch(function () {
-            // Transient error at boot: if this device has signed in before, still
-            // head to profiles (which safely redirects to sign-in on a real 401).
-            finish(signedInBefore ? "profiles" : "signin");
+            // Never land on profiles without a verified Bearer session — that caused
+            // Samsung QA "signed in but blank / bounce" glitches on flaky boots.
+            var hasToken = !!(STU.API && STU.API.getAccessToken && STU.API.getAccessToken());
+            finish(hasToken && signedInBefore ? "profiles" : "signin");
         });
 
         function finish(screen) {

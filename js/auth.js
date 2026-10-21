@@ -1,12 +1,11 @@
-/* NextAuth + Samsung TV session.
+/* Samsung TV session auth.
  *
- * Tizen packaged apps run as file:// / widget origin. Chromium on Tizen 8–10
- * will not store NextAuth SameSite=Lax cookies on cross-origin fetch, so
- * credentials-viewer can appear to succeed while GET /api/auth/session is empty
- * ("Sign-in succeeded but no session was created").
+ * Tizen webviews cannot keep NextAuth SameSite cookies on cross-origin fetch.
+ * Login MUST use POST /api/tv/session → JWT stored in localStorage, then
+ * Authorization: Bearer on every API call.
  *
- * Primary path: POST /api/tv/session → JWT, sent as Authorization: Bearer on
- * every API call. Cookie NextAuth remains a fallback for desktop preview. */
+ * Also: never use credentials:"include" against a CORS "*" API (blocked by
+ * Chromium/Tizen) — that was why session creation failed in Samsung QA. */
 (function () {
     "use strict";
     var STU = window.STU || (window.STU = {});
@@ -26,33 +25,40 @@
         } catch (e) {}
     }
 
-    function wait(ms) {
-        return new Promise(function (resolve) { setTimeout(resolve, ms); });
+    function onTizen() {
+        return !!(STU.tv && STU.tv.isTizen);
     }
 
     var Auth = {
         fetchSession: function () {
             var token = API.getAccessToken && API.getAccessToken();
-            if (token) {
-                return API.request({ path: "api/tv/session" }).then(function (res) {
-                    if (res.status === 401 || res.status === 403) {
-                        API.clearAccessToken();
-                        persistSignedIn(false);
-                        return null;
-                    }
-                    if (res.status === 404 || res.status === 405) {
-                        return Auth.fetchCookieSession();
-                    }
-                    if (res.status !== 200) {
-                        if (res.status === 0) return Auth.fetchCookieSession();
-                        throw API.parseError(res);
-                    }
-                    return sessionFromPayload(res.data);
-                }).catch(function () {
-                    return Auth.fetchCookieSession();
-                });
+            if (!token) {
+                if (onTizen()) return Promise.resolve(null);
+                return Auth.fetchCookieSession();
             }
-            return Auth.fetchCookieSession();
+            return API.request({ path: "api/tv/session", omitCredentials: true }).then(function (res) {
+                if (res.status === 401 || res.status === 403) {
+                    API.clearAccessToken();
+                    persistSignedIn(false);
+                    return null;
+                }
+                if (res.status === 404 || res.status === 405) {
+                    if (onTizen()) return null;
+                    return Auth.fetchCookieSession();
+                }
+                if (res.status !== 200) {
+                    if (res.status === 0 && !onTizen()) return Auth.fetchCookieSession();
+                    if (res.status === 0) return null;
+                    throw API.parseError(res);
+                }
+                return sessionFromPayload(res.data);
+            }).catch(function (err) {
+                if (onTizen()) {
+                    if (err && err.status === 401) return null;
+                    throw err;
+                }
+                return Auth.fetchCookieSession();
+            });
         },
 
         fetchCookieSession: function () {
@@ -66,47 +72,61 @@
             });
         },
 
+        /* Primary path for TV — Bearer JWT. */
         signInTv: function (email, password) {
+            var cleanEmail = String(email || "").trim().toLowerCase();
+            var cleanPass = String(password || "");
+            if (!cleanEmail || !cleanPass) {
+                return Promise.reject(new API.ApiError("Enter your email and password.", 400));
+            }
             return API.request({
                 path: "api/tv/session",
                 method: "POST",
-                json: {
-                    email: String(email).trim().toLowerCase(),
-                    password: password
-                }
+                omitCredentials: true,
+                json: { email: cleanEmail, password: cleanPass }
             }).then(function (res) {
                 if (res.status === 200) {
                     var token = res.data && res.data.token;
                     var session = sessionFromPayload((res.data && res.data.session) || res.data);
                     if (!token || !session) {
-                        throw new API.ApiError("Sign-in succeeded but no session was created.", 0);
+                        throw new API.ApiError("Sign-in succeeded but no session token was returned.", 0);
                     }
                     API.setAccessToken(token);
+                    if (API.setViewerProfileId) API.setViewerProfileId(null);
                     persistSignedIn(true);
-                    return session;
+                    /* Prove the token round-trips before leaving the sign-in screen. */
+                    return Auth.fetchSession().then(function (verified) {
+                        if (!verified || !verified.user) {
+                            API.clearAccessToken();
+                            persistSignedIn(false);
+                            throw new API.ApiError("Session token was rejected. Please try again.", 0);
+                        }
+                        return verified;
+                    });
                 }
-                if (res.status === 401 || res.status === 429) throw API.parseError(res);
-                if (res.status === 403 && res.data && res.data.error) throw API.parseError(res);
-                return null;
+                if (res.status === 404 || res.status === 405) {
+                    throw new API.ApiError("TV sign-in is not available on the server yet.", res.status);
+                }
+                throw API.parseError(res);
             });
         },
 
+        /* Desktop preview only — cookies never stick on packaged Tizen apps. */
         signInCookies: function (email, password) {
             return API.request({ path: "api/auth/csrf" }).then(function (res) {
                 if (res.status !== 200) throw API.parseError(res);
                 var csrf = res.data && res.data.csrfToken;
                 if (!csrf) throw new API.ApiError("Could not start sign-in. Please try again.", 0);
-                var form = {
-                    csrfToken: csrf,
-                    email: String(email).trim().toLowerCase(),
-                    password: password,
-                    callbackUrl: cfg.webBase + "/profiles",
-                    json: "true"
-                };
                 return API.request({
                     path: "api/auth/callback/credentials-viewer",
                     method: "POST",
-                    form: form
+                    form: {
+                        csrfToken: csrf,
+                        email: String(email).trim().toLowerCase(),
+                        password: password,
+                        callbackUrl: cfg.webBase + "/profiles",
+                        json: "true"
+                    }
                 });
             }).then(function (res) {
                 var d = res.data || {};
@@ -114,17 +134,10 @@
                     var msg = d.error === "CredentialsSignin" ? "Invalid email or password." : d.error;
                     throw new API.ApiError(msg, res.status);
                 }
-                var url = String(d.url || "");
-                if (/[?&]csrf=true\b/.test(url) || /[?&]error=/.test(url)) {
-                    throw new API.ApiError("Sign-in could not create a session on this TV. Please try again.", 0);
-                }
                 if (res.status < 200 || (res.status >= 300 && res.status !== 302)) {
                     throw API.parseError(res);
                 }
                 return Auth.fetchCookieSession();
-            }).then(function (session) {
-                if (session && session.user) return session;
-                return wait(400).then(function () { return Auth.fetchCookieSession(); });
             }).then(function (session) {
                 if (!session || !session.user) {
                     throw new API.ApiError("Sign-in succeeded but no session was created.", 0);
@@ -135,28 +148,33 @@
         },
 
         signIn: function (email, password) {
-            return Auth.signInTv(email, password).then(function (session) {
-                if (session && session.user) return session;
-                return Auth.signInCookies(email, password);
-            }).catch(function (err) {
-                if (err && err.status && err.status !== 404 && err.status !== 405) throw err;
-                return Auth.signInCookies(email, password);
+            if (onTizen()) {
+                return Auth.signInTv(email, password);
+            }
+            return Auth.signInTv(email, password).catch(function (err) {
+                if (err && (err.status === 404 || err.status === 405)) {
+                    return Auth.signInCookies(email, password);
+                }
+                throw err;
             });
         },
 
         signOut: function () {
             API.clearAccessToken();
             persistSignedIn(false);
-            return API.request({ path: "api/tv/session", method: "DELETE" }).catch(function () {}).then(function () {
-                return API.request({ path: "api/auth/csrf" }).then(function (res) {
-                    var csrf = res.data && res.data.csrfToken;
-                    return API.request({
-                        path: "api/auth/signout",
-                        method: "POST",
-                        form: { csrfToken: csrf, callbackUrl: cfg.webBase, json: "true" }
+            return API.request({ path: "api/tv/session", method: "DELETE", omitCredentials: true })
+                .catch(function () {})
+                .then(function () {
+                    if (onTizen()) return;
+                    return API.request({ path: "api/auth/csrf" }).then(function (res) {
+                        var csrf = res.data && res.data.csrfToken;
+                        return API.request({
+                            path: "api/auth/signout",
+                            method: "POST",
+                            form: { csrfToken: csrf, callbackUrl: cfg.webBase, json: "true" }
+                        });
                     });
-                });
-            }).catch(function () {});
+                }).catch(function () {});
         }
     };
 

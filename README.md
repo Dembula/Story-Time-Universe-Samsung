@@ -137,16 +137,13 @@ Live API calls require the backend to permit the request origin (see **Networkin
 
 ## Networking & auth notes
 
-Tizen webviews run as `file://` / widget origin. Chromium on 2024–2026 TVs **will not store NextAuth `SameSite=Lax` cookies** on cross-origin `fetch`. That is why Samsung certification saw:
+Tizen webviews run as `file://` / widget origin. Chromium on 2024–2026 TVs **will not store NextAuth `SameSite=Lax` cookies** on cross-origin `fetch`. Credentialed fetches against `Access-Control-Allow-Origin: *` are also blocked — that broke login when the client used `credentials: "include"`.
 
-> Sign-in succeeded but no session was created.
+The app authenticates with **`POST /api/tv/session`** (`credentials: "omit"`), stores a JWT in `localStorage`, and sends `Authorization: Bearer` on every API call (plus `X-ST-Viewer-Profile` after a profile is chosen). HLS `<video>` requests append `tv_token` because media elements cannot set Authorization. Production middleware maps Bearer / `tv_token` onto NextAuth cookies.
 
-The app now authenticates with **`POST /api/tv/session`**, stores a JWT, and sends `Authorization: Bearer` on every API call (plus `X-ST-Viewer-Profile` after a profile is chosen). Production middleware copies those headers onto the NextAuth / profile cookies so existing viewer APIs keep working.
-
-- Fallback: NextAuth `credentials-viewer` CSRF flow (desktop preview / older webviews that keep cookies).
-- `config.xml` WARP `<access>` origins allow the backend and video CDNs.
-- Playback uses HTML5 `<video>`. Credentialed `crossorigin` is only set for cookie sessions; Bearer sessions omit it so HLS is not blocked by CORS.
-- **Resubmit as app version 1.0.1 after production with `/api/tv/session` is deployed.**
+- Desktop preview may fall back to NextAuth cookies; packaged Tizen never does.
+- QA viewer accounts must **not** have authenticator MFA enabled.
+- **Resubmit as app version 1.0.3** with production middleware covering watchlist/crew/people.
 
 ---
 

@@ -70,11 +70,18 @@
             }).join("&");
         }
 
+        /* Tizen + production CORS use Access-Control-Allow-Origin: *.
+           Browsers block credentials:"include" with a wildcard origin, which made
+           POST /api/tv/session appear to hang/fail and left Samsung QA unable to
+           log in. Always omit cookies on TV; auth is Bearer-only. */
+        var onTizen = !!(STU.tv && STU.tv.isTizen);
+        var omitCreds = !!accessToken || onTizen || !!opts.omitCredentials;
+
         return fetch(url, {
             method: method,
             headers: headers,
             body: body,
-            credentials: accessToken ? "omit" : "include",
+            credentials: omitCreds ? "omit" : "include",
             mode: "cors",
             cache: "no-store",
             redirect: "follow"
@@ -82,10 +89,10 @@
             return res.text().then(function (text) {
                 var data = null;
                 if (text) { try { data = JSON.parse(text); } catch (e) { data = null; } }
-                return { status: res.status, data: data, text: text };
+                return { status: res.status, data: data, text: text, headers: res.headers };
             });
         }, function (err) {
-            throw new ApiError((err && err.message) || "Network error", 0);
+            throw new ApiError((err && err.message) || "Network error — check TV internet connection.", 0);
         });
     }
 
@@ -94,6 +101,13 @@
         var msg = d.error;
         if (res.status === 402 || d.paymentRequired) {
             return new ApiError(msg || "Complete your subscription on the web.", 402, { paymentRequired: true });
+        }
+        if (d.mfaRequired) {
+            return new ApiError(
+                "This account has authenticator MFA enabled. Disable MFA for the QA viewer account, or use an account without MFA.",
+                401,
+                { mfaRequired: true }
+            );
         }
         if (res.status === 401) return new ApiError(msg || "Please sign in again.", 401);
         return new ApiError(msg || ("Request failed (" + res.status + ")."), res.status);

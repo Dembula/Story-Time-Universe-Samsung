@@ -160,12 +160,27 @@
         });
     }
 
+    /* <video> cannot send Authorization headers. For same-origin API HLS proxies,
+       attach the TV JWT (+ profile) as query params so middleware can authenticate. */
+    function withTvAuth(url) {
+        if (!url) return url;
+        var token = API.getAccessToken && API.getAccessToken();
+        if (!token) return url;
+        var base = cfg.apiBase || "";
+        if (url.indexOf(base) !== 0 && url.indexOf("/api/") !== 0) return url;
+        var sep = url.indexOf("?") >= 0 ? "&" : "?";
+        var out = url + sep + "tv_token=" + encodeURIComponent(token);
+        var profileId = API.getViewerProfileId && API.getViewerProfileId();
+        if (profileId) out += "&tv_profile=" + encodeURIComponent(profileId);
+        return out;
+    }
+
     function loadAndPlay() {
         API.fetchPlaybackBundle(state.contentId, state.episodeId, state.isTrailer).then(function (bundle) {
             var src = bundle && bundle.playback && bundle.playback.src;
             if (!src) throw new API.ApiError("No playable stream was returned for this title.", 0);
             if (src.indexOf("http") !== 0) src = cfg.apiBase + (src.charAt(0) === "/" ? "" : "/") + src;
-            state.streamSrc = src;
+            state.streamSrc = withTvAuth(src);
             state.streamType = (bundle.playback && bundle.playback.type) || "";
             state.duration = bundle.duration || 0;
             attachSubtitles(bundle.subtitles || []);
@@ -202,9 +217,10 @@
         // Native tracks; the default one is shown. Kept simple and reliable on Tizen.
         list.forEach(function (s, i) {
             if (!s.vttUrl) return;
+            var trackSrc = s.vttUrl.indexOf("http") === 0 ? s.vttUrl : (cfg.apiBase + s.vttUrl);
             var track = el("track", {
                 kind: "subtitles",
-                src: s.vttUrl.indexOf("http") === 0 ? s.vttUrl : (cfg.apiBase + s.vttUrl),
+                src: withTvAuth(trackSrc),
                 srclang: s.language || ("s" + i),
                 label: s.label || s.language || ("Subtitles " + (i + 1))
             });
